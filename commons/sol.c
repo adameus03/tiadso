@@ -8,8 +8,6 @@
 
 static const char* TAG = "sol";
 
-#define RDRAND_ERR_CHECK(retval) if ((retval) == 0 ) { TIADSO_LOGI(TAG, "_rdrand32_step failed."); exit(EXIT_FAILURE); } else if ((retval) != 1) { TIADSO_LOGI(TAG, "_rdrand32_step returned an unexpected value."); exit(EXIT_FAILURE); }
-
 void sol_randomize(sol_t* pSol, BaseType_t memberCoordinateLeftBound, BaseType_t memberCoordinateRightBound) {
     uint32_t _r = 0;
     for (uint64_t i = 0; i < pSol->num_coordinates; i++) {

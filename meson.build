@@ -7,6 +7,8 @@ project('zad3', 'c')
 cc = meson.get_compiler('c')
 add_project_arguments('-mrdrnd', language: 'c')
 add_project_arguments('-mavx2', language: 'c')
+add_project_arguments('-O3', language: 'c')
+add_project_arguments('-D_FORTIFY_SOURCE=3', language: 'c')
 mdep = cc.find_library('m', required : false)
 executable('zad3', [
     'main.c', 
