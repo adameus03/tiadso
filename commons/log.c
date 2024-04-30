@@ -11,7 +11,7 @@ void tiadso_log_set_level(tiadso_log_level_t level) {
     current_log_level = level;
 }
 
-void __tiadso_log(tiadso_log_level_t level, const char* tag, const char* fmt, ...) {
+void tiadso_log(tiadso_log_level_t level, const char* tag, const char* fmt, ...) {
     FILE* __restrict__ stream = level == TIADSO_LOG_ERROR ? stderr : stdout;
     if (current_log_level >= level) {
         // Print tag
@@ -40,17 +40,27 @@ void __tiadso_log(tiadso_log_level_t level, const char* tag, const char* fmt, ..
 }
 
 void tiadso_loge(const char* __restrict tag, const char* __restrict fmt, ...) {
-    __tiadso_log(TIADSO_LOG_ERROR, tag, fmt);
+    va_list args; va_start(args, fmt);
+    tiadso_log(TIADSO_LOG_ERROR, tag, fmt, args);
+    va_end(args);
 }
 void tiadso_logw(const char* __restrict tag, const char* __restrict fmt, ...) {
-    __tiadso_log(TIADSO_LOG_WARN, tag, fmt);
+    va_list args; va_start(args, fmt);
+    tiadso_log(TIADSO_LOG_WARN, tag, fmt, args);
+    va_end(args);
 }
 void tiadso_logi(const char* __restrict tag, const char* __restrict fmt, ...) {
-    __tiadso_log(TIADSO_LOG_INFO, tag, fmt);
+    va_list args; va_start(args, fmt);
+    tiadso_log(TIADSO_LOG_INFO, tag, fmt, args);
+    va_end(args);
 }
 void tiadso_logd(const char* __restrict tag, const char* __restrict fmt, ...) {
-    __tiadso_log(TIADSO_LOG_DEBUG, tag, fmt);
+    va_list args; va_start(args, fmt);
+    tiadso_log(TIADSO_LOG_DEBUG, tag, fmt, args);
+    va_end(args);
 }
 void tiadso_logv(const char* __restrict tag, const char* __restrict fmt, ...) {
-    __tiadso_log(TIADSO_LOG_VERBOSE, tag, fmt);
+    va_list args; va_start(args, fmt);
+    tiadso_log(TIADSO_LOG_VERBOSE, tag, fmt, args);
+    va_end(args);
 }

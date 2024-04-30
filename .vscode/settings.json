@@ -64,7 +64,8 @@
     "mmintrin.h": "c",
     "avx512fintrin.h": "c",
     "immintrin.h": "c",
-    "algorithm": "cpp"
+    "algorithm": "cpp",
+    "typeinfo": "c"
   },
   "C_Cpp.default.compileCommands": "/home/mundus/base/sem6/TIAD/zad3/builddir/compile_commands.json",
   "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild"

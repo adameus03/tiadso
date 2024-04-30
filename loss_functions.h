@@ -1,4 +1,4 @@
-#include "commons/typedefs.h"
+#include "commons/types.h"
 #include "commons/sol.h"
 
 #define LOSS_FUNCTION_SPHERE_COORD_MIN -100

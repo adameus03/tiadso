@@ -4,6 +4,10 @@
 #include "commons/log.h"
 #include "commons/sol.h"
 
+#include "loss_functions.h"
+#include "optimizers/bruteforce.h"
+
+
 #if CONFIG_USE_RDRND == 0
 #include <time.h>
 #endif
@@ -75,15 +79,32 @@ int main(int argc, char** argv) {
     
     TIADSO_LOGI(TAG, "Starting application");
 
-    __m512 v512 = _mm512_setr_ps(1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 4.5f,
-                                5.0f, 5.5f, 6.0f, 6.5f, 7.0f, 7.5f, 8.0f, 8.5f);
+    uint64_t num_dimensions = 20;
+    sol_t solution = SOL_CREATE(num_dimensions);
+    sol_coordinates_alloc(&solution);
     
-    float* pVals = (float*)&v512;
-    for (uint64_t i = 0; i < sizeof(__m512) / sizeof(float); i++) {
-        printf("%f ", pVals[i]);
-    }
+    bruteforce_config_t bruteforceConfig = {
+        .common_config = {
+            .coordinate_left_bound = -100,
+            .coordinate_right_bound = 100,
+            .num_dimensions = num_dimensions,
+            .stop_condition = {
+                .type = LIMIT_ITERS,
+                .param.num_iters = 100
+            }
+        }
+    };
+
+    tiadso_optimizers_bruteforce_optimize_loss(loss_functions__sphere, &bruteforceConfig, &solution);
+    char str[1024];
+    sol_coordinates_to_str(&solution, str, 1024);
+    BaseType_t f = loss_functions__sphere(&solution);
+    tiadso_log(TIADSO_LOG_INFO, TAG, "Best solution: %s [f = %f]", str);
+    tiadso_log(TIADSO_LOG_INFO, TAG, "Loss: %f", f);
+    sol_coordinates_free(&solution);
+    TIADSO_LOGI(TAG, "Exiting application");
     
-    printf("\n");
+    
 
     return 0;
 }

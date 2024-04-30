@@ -4,6 +4,7 @@
 
 static const char* TAG = "loss_functions";
 
+#if CONFIG_USE_AVX512_FMA == 1
 // inspired by https://stackoverflow.com/questions/49941645/get-sum-of-values-stored-in-m256d-with-sse-avx
 double loss_functions_aggregation_helpers_hsum512d(__m512d v) {
     __m256d vl256 = _mm512_castpd512_pd256(v);
@@ -27,6 +28,7 @@ float loss_functions_aggregation_helpers_hsum512(__m512 v) {
     return 0.0;
 }
 
+#elif CONFIG_USE_AVX2_FMA == 1
 double loss_functions_aggregation_helpers_hsum256d(__m256d v) {
     __m128d vl128 = _mm256_castpd256_pd128(v);
     __m128d vh128 = _mm256_extractf128_pd(v, 1);
@@ -36,87 +38,62 @@ double loss_functions_aggregation_helpers_hsum256d(__m256d v) {
     return _mm_cvtsd_f64(_mm_add_sd(vl128, vlh64dup));
 }
 
-float loss_functions_aggregation_helpers(__m256 v) {
+float loss_functions_aggregation_helpers_hsum256(__m256 v) {
     __m128 vl128 = _mm256_castps256_ps128(v);
     __m128 vh128 = _mm256_extractf128_ps(v, 1);
     vl128 = _mm_add_ps(vl128, vh128);
 
-    /* v
-        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-        cccccccccccccccccccccccccccccccc
-        dddddddddddddddddddddddddddddddd
-        eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-        ffffffffffffffffffffffffffffffff
-        gggggggggggggggggggggggggggggggg
-        hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-
-    */
-
-   /* vl128
-        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-        cccccccccccccccccccccccccccccccc
-        dddddddddddddddddddddddddddddddd
-
-      vh128
-        eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-        ffffffffffffffffffffffffffffffff
-        gggggggggggggggggggggggggggggggg
-        hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-    
-   */
-  
-  /*
-    vl128
-        [0:31] a+e (f32)
-        [32:63] b+f (f32)
-        [64:95] c+g (f32)
-        [96:127] d+h (f32)
-  */
-
-  /*
-    vlh64dup
-       [0:31] c+g (f32)
-       [32:63] c+g (f32)
-       [95:64] d+h (f32)
-       [96:127] d+h (f32)
-  */
-
- /*
-    vll64dup
-       [0:31] a+e (f32)
-       [32:63] a+e (f32)
-       [95:64] b+f (f32)
-       [96:127] b+f (f32)
-  */
     __m128 vlh64dup = _mm_unpackhi_ps(vl128, vl128);
     __m128 vll64dup = _mm_unpacklo_ps(vl128, vl128);
 
     __m128 s = _mm_add_ps(vlh64dup, vll64dup);
-    /*
-    s
-       [0:31] a+c+e+g (f32)
-       [32:63] a+c+e+g (f32)
-       [95:64] b+d+f+h (f32)
-       [96:127] b+d+f+h (f32)
-  */
     return _mm_extract_ps(s, 0) + _mm_extract_ps(s, 3);
 }
+#endif
 
 BaseType_t loss_functions__sphere(sol_t* pSol) {
     BaseType_t sum = (BaseType_t) 0.0;
+#if CONFIG_USE_AVX512_FMA == 1 || CONFIG_USE_AVX2_FMA
+    for (uint64_t i = 0; i < pSol->num_coordinate_packets; i++) {
     #if CONFIG_USE_AVX512_FMA == 1
-        for (uint64_t i = 0; i < pSol->num_coordinate_packets; i++) {
-            Avx512BaseType_t* pCoordinatePacket = pSol->pCoordinatePackets + i;
-            #if CONFIG_USE_DOUBLE_PRECISION == 1
-                Avx512BaseType_t square = _mm512_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
-                sum += loss_functions_hsum512d(square);
-            #else
-                Avx512BaseType_t square = _mm512_mul_ps(*pCoordinatePacket, *pCoordinatePacket);
-                sum += loss_functions_hsum512(square);
-            #endif
-        }
-    #else
+        Avx512BaseType_t* pCoordinatePacket;
+        Avx512BaseType_t square;
+    #elif CONFIG_USE_AVX2_FMA == 1
+        Avx2BaseType_t* pCoordinatePacket;
+        Avx2BaseType_t square;
     #endif
+        pCoordinatePacket = pSol->pCoordinatePackets + i;
+
+    #if CONFIG_USE_AVX512_FMA == 1
+        #if CONFIG_USE_DOUBLE_PRECISION == 1
+        square = _mm512_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
+        sum += loss_functions_aggregation_helpers_hsum512d(square);
+        #else
+        square = _mm512_mul_ps(*pCoordinatePacket, *pCoordinatePacket);
+        sum += loss_functions_aggregation_helpers_hsum512(square);
+        #endif
+    #elif CONFIG_USE_AVX2_FMA == 1
+        #if CONFIG_USE_DOUBLE_PRECISION == 1
+        square = _mm256_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
+        square = _mm256_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
+        square = _mm256_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
+        //TIADSO_LOGI(TAG, "Calling hsum helper");
+        sum += loss_functions_aggregation_helpers_hsum256d(square);
+        square = _mm256_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
+        square = _mm256_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
+        square = _mm256_mul_pd(*pCoordinatePacket, *pCoordinatePacket);
+        #else
+        square = _mm256_mul_ps(*pCoordinatePacket, *pCoordinatePacket);
+        sum += loss_functions_aggregation_helpers_hsum256(square);
+        #endif
+    #endif
+    }
+#else
+    for (uint64_t i = 0; i < pSol->num_coordinates; i++) {
+        BaseType_t* pCoordinate = pSol->pCoordinates + i;
+        BaseType_t square = *pCoordinate * *pCoordinate;
+        sum += square;
+    }
+#endif
+    return sum;
 }
